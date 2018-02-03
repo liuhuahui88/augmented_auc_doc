@@ -1,0 +1,173 @@
+\documentclass[sigconf]{acmart}
+
+\usepackage{booktabs} % For formal tables
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{geometry}
+\usepackage{indentfirst}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{makecell}
+\usepackage{mathrsfs}
+\usepackage{bbm}
+\usepackage[linesnumbered,ruled]{algorithm2e}
+\allowdisplaybreaks
+
+% Copyright
+%\setcopyright{none}
+%\setcopyright{acmcopyright}
+%\setcopyright{acmlicensed}
+\setcopyright{rightsretained}
+%\setcopyright{usgov}
+%\setcopyright{usgovmixed}
+%\setcopyright{cagov}
+%\setcopyright{cagovmixed}
+
+
+% DOI
+\acmDOI{10.475/123_4}
+
+% ISBN
+\acmISBN{123-4567-24-567/08/06}
+
+%Conference
+%\acmConference[WWW'17]{ACM International Conference on Information and Knowledge Management}{November 2017}{Pan Pacific, Singapore}
+%\acmYear{2017}
+%\copyrightyear{2017}
+
+%\acmPrice{15.00}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+\newcommand{\ty}[1]{\hat{y}_{#1}}
+\newcommand{\tyi}{\ty{i}}
+\newcommand{\sF}[1]{f(x_{#1}; \theta)}
+\newcommand{\sFi}{\sF{i}}
+
+\newcommand{\SampleSet}{\mathbb{S}}
+
+\newcommand{\RealAUC}{AUC^{\mathbb{R}}}
+\newcommand{\SoftAUC}{SAUC}
+\newcommand{\EmpSoftAUC}{\widehat{\SoftAUC}}
+\newcommand{\EmpSoftAUCExp}{\widehat{\SoftAUC}(\theta; \SampleSet)}
+
+\newcommand{\SwapIndic}[5]{#1 ( #2{#3} #5 #2{#4} )}
+\newcommand{\SwapIndicHardY}[2]{\SwapIndic{\textbf{1}}{\ty}{#1}{#2}{>}}
+\newcommand{\SwapIndicSoftY}[2]{\SwapIndic{\sigma}{\ty}{#1}{#2}{-}}
+\newcommand{\SwapIndicSoftF}[2]{\SwapIndic{\sigma}{\sF}{#1}{#2}{-}}
+
+\newcommand{\SwapGainHard}[2]{\textbf{1}(y_{#1}=1 \wedge y_{#2}=0)}
+\newcommand{\SwapGainAsym}[2]{max(0, y_{#1} - y_{#2})}
+\newcommand{\SwapGainSym}[2]{(y_{#1} - y_{#2})}
+
+\begin{document}
+
+\title{An Introduction to the Real-Valued AUC and its Optimization}
+
+\begin{abstract}
+This is an introduction to real-valued soft and its optimization.
+\end{abstract}
+
+\keywords{Real-Valued AUC, Soft AUC}
+
+\maketitle
+
+\section{Introduction}
+
+AUC is defined as the expectation of ranking a positive sample above a negative one.
+It is a popular metric for ranking performance evaluation and is extensively used in regression problems with binary labeled samples(e.g. CTR prediction).
+However, due to its discrete nature, AUC is both inapplicable to real value labeled samples(e.g. RPM ranking) and hard to optimize directly.
+
+Let $x_i$ be the features of sample $i$.
+Let $y_i$ be the label of sample $i$ with $1$ and $0$ for positive and negative samples respectively.
+Let $\tyi = \sFi$ be the predicted ranking score of sample $i$.
+AUC could be formalized as follows,
+
+\begin{alignat*}{4}
+  AUC \propto & \mathbb{E} [ && \SwapIndicHardY{i}{j} \SwapGainHard{i}{j}  + \\
+              &              && \SwapIndicHardY{j}{i} \SwapGainHard{j}{i} ] \\
+      =       & \mathbb{E} [ && \SwapIndicHardY{i}{j} \SwapGainAsym{i}{j}  + \\
+              &              && \SwapIndicHardY{j}{i} \SwapGainAsym{j}{i} ]
+\end{alignat*}
+
+This formalization sheds light on two straight forward ideas.
+
+\begin{enumerate}
+\item \textbf{Real-Valued AUC}(a.k.a $\RealAUC$) :
+  the $y_i$ is not necessarily being binary and
+  the AUC could be naturally extended for problems with real value labeled samples.
+\item \textbf{Soft AUC}(a.k.a. $\SoftAUC$) :
+  by replacing the discrete indicator function with its continuous approximation(e.g. sigmoid),
+  the AUC itself could be optimized with gradient based methods.
+\end{enumerate}
+
+\section{Real-Valued AUC}
+
+At the first glance, the $\RealAUC$ could be defined by simply relaxing the $y_i$ in the original AUC from binary into real values.
+
+\begin{alignat*}{4}
+  \RealAUC_{asym} \propto & \mathbb{E} [ && \SwapIndicHardY{i}{j} \SwapGainAsym{i}{j}  + \\
+                          &              && \SwapIndicHardY{j}{i} \SwapGainAsym{j}{i} ] 
+\end{alignat*}
+
+Note there's kind of asymmetry in the above definition, i.e. the correct ranking action being rewarded with $|y_i - y_j|$ while the incorrect one staying unpunished.
+This asymmetry is degenerated in binary valued cases since the reward is always 1 and no reward is itself the punishment. 
+However, it does exist in real valued cases and might be problematic.
+To address this issue, the symmetric variation is proposed as follows.
+
+\begin{alignat*}{4}
+  \RealAUC_{sym} \propto & \mathbb{E} [ && \SwapIndicHardY{i}{j} \SwapGainSym{i}{j}  + \\
+                         &              && \SwapIndicHardY{j}{i} \SwapGainSym{j}{i} ] 
+\end{alignat*}
+
+\section{Soft AUC}
+
+The $\SoftAUC$ could be defined by replacing the hard indicator function in the original AUC with soft ones(e.g. sigmoid).
+
+\begin{alignat*}{4}
+  \SoftAUC \propto & \mathbb{E} [ && \SwapIndicSoftY{i}{j} \SwapGainAsym{i}{j}  + \\
+                   &              && \SwapIndicSoftY{j}{i} \SwapGainAsym{j}{i} ] 
+\end{alignat*}
+
+And the empirical $\SoftAUC$ of preditor parameter $\theta$ on sample set $\SampleSet$ could be defined as follows with $Z$ as normalizer.
+
+\begin{alignat*}{4}
+  \EmpSoftAUCExp = & \frac{1}{Z} \sum\limits_{i=1}^{|\SampleSet|} \sum\limits_{j=i+1}^{|\SampleSet|} [ && \SwapIndicSoftF{i}{j} \SwapGainAsym{i}{j}  + \\
+                   &                                                                                   && \SwapIndicSoftF{j}{i} \SwapGainAsym{j}{i} ] 
+\end{alignat*}
+
+Now that the $\EmpSoftAUCExp$ is differetiable with respect to $\theta$, it could be maximized with gradient based methods.
+However, the computational complexiy of the gradient for each iteration is $\Theta(|\SampleSet|^2)$,
+  which is inacceptable for industrial problems with hundreds of millions of samples.
+To tackle this issue, we adopts mini-batched gradient method.
+At the begining, the whole sample set $\SampleSet$ is randomly divided into a series of sub sets, each of which contains tractable number(e.g. 100) of samples.
+Then those sub sets are repeatedly fed into the optimizer and the $\theta$ is consistently updated until convergence.
+Experimental results show that our method converges to $\theta^*$ with both $AUC$ and $\SoftAUC$ maximized.
+
+\begin{algorithm}
+\caption{Mini-Batched Gradient Method for $\EmpSoftAUCExp$ \label{SoftAUCAlgo}}
+\SetKwInOut{Input}{Input}
+\SetKwInOut{Output}{Output}
+\SetKwRepeat{Do}{do}{while}
+
+\Input{sample set $\SampleSet$}
+
+\Output{$\theta^*$ which maximizes $\EmpSoftAUCExp$}
+
+Initialize $\theta$ randomly
+
+Split $\SampleSet$ into $K$ sub sets $\SampleSet_1$, ... , $\SampleSet_K$
+
+\While{not converged yet} {
+  \For{$k=1:K$} {
+    Compute $\Delta = \frac{\partial{\EmpSoftAUC (\theta; \SampleSet_k)}}{\partial{\theta}}$
+
+    Update $\theta = \theta + \eta \Delta$
+  }
+}
+
+\Return{$\theta$}
+\end{algorithm}
+
+\end{document}
